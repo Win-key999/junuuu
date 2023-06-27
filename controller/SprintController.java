@@ -1,0 +1,226 @@
+package com.pennant.prodmtr.controller;
+
+import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.google.gson.Gson;
+import com.pennant.prodmtr.model.Dto.FunctionalUnitdto;
+import com.pennant.prodmtr.model.Dto.ModuleDTO;
+import com.pennant.prodmtr.model.Dto.ProjectDto;
+import com.pennant.prodmtr.model.Dto.TaskDto;
+import com.pennant.prodmtr.model.Dto.UserDto;
+import com.pennant.prodmtr.model.Entity.FunctionalUnit;
+import com.pennant.prodmtr.model.Entity.Sprint;
+import com.pennant.prodmtr.model.Entity.SprintResource;
+import com.pennant.prodmtr.model.Entity.SprintTasks;
+import com.pennant.prodmtr.model.Entity.Task;
+import com.pennant.prodmtr.model.Input.SprintInput;
+import com.pennant.prodmtr.model.Input.SprintResourceInput;
+import com.pennant.prodmtr.model.Input.SprintTasksInput;
+import com.pennant.prodmtr.model.Input.TaskInput;
+import com.pennant.prodmtr.model.view.FunctionalTask;
+import com.pennant.prodmtr.service.Interface.ModuleService;
+import com.pennant.prodmtr.service.Interface.ProjectService;
+import com.pennant.prodmtr.service.Interface.ResourceService;
+import com.pennant.prodmtr.service.Interface.SprintService;
+import com.pennant.prodmtr.service.Interface.TaskService;
+
+@Controller
+public class SprintController {
+
+	SprintService sprintService;
+	ProjectService projectService;
+	ModuleService moduleService;
+	TaskService taskService;
+	ResourceService resourceService;
+	static int sprintid = 0;
+
+	@Autowired
+	public SprintController(SprintService sprintService, ProjectService projectService, ModuleService moduleService,
+			TaskService taskService, ResourceService resourceService) {
+		super();
+		this.sprintService = sprintService;
+		this.projectService = projectService;
+		this.moduleService = moduleService;
+		this.taskService = taskService;
+		this.resourceService = resourceService;
+
+	}
+
+	@RequestMapping(value = "/ShowFunctionalUnits", method = RequestMethod.POST)
+	public String createTask(@Validated SprintInput sprintInput,
+			@ModelAttribute SprintResourceInput SprintResourceInput, Model model) throws ParseException {
+		Sprint s = sprintService.storeSprint(sprintInput.toEntity());
+		SprintResource sr = SprintResourceInput.toEntity();
+		sprintid = s.getSprintId();
+		sr.setSprintId(s.getSprintId());
+		sprintService.storeSprintResource(sr);
+
+		List<FunctionalUnit> flist = sprintService.getFunctionalUnitsByModId(sprintInput.getModuleId(),
+				sprintInput.getProjectId());
+		List<FunctionalUnitdto> funlistDto = new ArrayList<>();
+
+		for (FunctionalUnit functionalUnit : flist) {
+			FunctionalUnitdto funUnitDto = FunctionalUnitdto.fromEntity(functionalUnit);
+			funlistDto.add(funUnitDto);
+		}
+
+		model.addAttribute("funlist", funlistDto);
+		model.addAttribute("pro_id", sprintInput.getProjectId());
+		return "ShowFunctionalUnits";
+	}
+
+	@RequestMapping(value = "/ShowFunUnits", method = RequestMethod.GET)
+	public String getFunctionalUnitIntoSprint(@RequestParam("modlid") int modlid, @RequestParam("projid") int projid,
+			Model model) {
+		List<FunctionalUnit> flist = sprintService.getFunctionalUnitsByModId(modlid, projid);
+		List<FunctionalUnitdto> funlistDto = new ArrayList<>();
+
+		for (FunctionalUnit functionalUnit : flist) {
+			FunctionalUnitdto funUnitDto = FunctionalUnitdto.fromEntity(functionalUnit);
+			funlistDto.add(funUnitDto);
+		}
+
+		model.addAttribute("funlist", funlistDto);
+		return "ShowFunctionalUnits";
+	}
+
+	@RequestMapping(value = "/sprint", method = RequestMethod.GET)
+	public String sprint(Model model) {
+		List<Sprint> allSprints = sprintService.getAllSprints();
+		model.addAttribute("allSprints", allSprints);
+		return "sprint_home";
+	}
+
+	// @RequestMapping(value = "/sprint_details", method = RequestMethod.GET)
+	// public String getSprintDetails(Model model, @RequestParam int sprintId,@RequestParam int sprintId ) {
+	// // System.out.println("Sprint Details JSP Requested");
+	// Sprint sprint = sd.getSprintDetails(sprintId);
+	// // Retrieve the selected sprint details from the database and add them to the model
+	// model.addAttribute("sprint", sprint);
+	//
+	// List<SprintTasks> tasksByIdSprints = sd.getAllTasksBySprintId(sprintId);
+	// model.addAttribute("tasksByIdSprints", tasksByIdSprints);
+	// return "sprint_details";
+	// }
+
+	@RequestMapping(value = "/sprint_details", method = RequestMethod.GET)
+	public String getSprintDetails(Model model, @RequestParam int sprintId) {
+		Sprint sprint = sprintService.getSprintDetails(sprintId);
+		model.addAttribute("sprint", sprint);
+		Sprint s = new Sprint();
+		s.setSprintId(sprintId);
+		List<SprintTasks> tasksByIdSprints = sprintService.getAllTasksBySprintId(s);
+		model.addAttribute("tasksByIdSprints", tasksByIdSprints);
+		return "sprint_details";
+	}
+
+	@RequestMapping(value = "/add_sprint", method = RequestMethod.GET)
+	public String addSprint(Model model) {
+		List<ProjectDto> pl = projectService.getAllProjects();
+		model.addAttribute("projects", pl);
+		System.out.println("pl" + pl);
+
+		List<UserDto> lu = resourceService.getAllResources();
+
+		model.addAttribute("users", lu);
+		System.out.println("lu" + lu);
+		return "add_sprint";
+	}
+
+	@RequestMapping(value = "/FunctionalUnit", method = RequestMethod.GET)
+	public String addSprint() {
+
+		return "FunctionalUnit";
+	}
+
+	@RequestMapping(value = "/SubTaskdetails", method = RequestMethod.GET)
+	public String SubtaskDetails() {
+		// System.out.println("Subtask Details requested");
+		return "SubtaskDetails";
+	}
+
+	@RequestMapping(value = "/CreateSubTask", method = RequestMethod.GET)
+	public String CreateSubtask() {
+
+		return "CreateSubtask";
+	}
+
+	// TODO
+	@RequestMapping(value = "/backlogs", method = RequestMethod.GET)
+	public String pastdue(Model model) {
+		ArrayList<Sprint> SprintList = (ArrayList<Sprint>) sprintService.getBacklogs();
+
+		model.addAttribute("sprintList", SprintList);
+		return "backlog";
+	}
+
+	@RequestMapping(value = "/BacklogTasks", method = RequestMethod.GET)
+	public String getBacklogTasks(Model model, @RequestParam("sprnModlId") int sprnModlId,
+			@RequestParam("sprnId") int sprnId) {
+
+		Sprint sprint = sprintService.getSprintDetails(sprnId);
+		List<Task> taskList = sprintService.getTasks(sprnModlId);
+		model.addAttribute("sprint", sprint);
+		model.addAttribute("taskList", taskList);
+		return "BacklogTasks";
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "/getModuleById", method = RequestMethod.POST, produces = "application/json")
+	public String getModuleById(@RequestParam("projectId") int projectId) {
+		List<ModuleDTO> moduleList = sprintService.getSprintModulesByProjectId(projectId);
+		System.out.println("module list is " + moduleList);
+		Gson gson = new Gson();
+		String json = gson.toJson(moduleList);
+		return json;
+	}
+
+	@RequestMapping(value = "/Task", method = RequestMethod.POST)
+	public String createTask(@ModelAttribute FunctionalTask ft, Model model) {
+		model.addAttribute("funtask", ft);
+		List<UserDto> lu = resourceService.getAllResources();
+		model.addAttribute("users", lu);
+		List<TaskDto> tasks = taskService.getAllTasks();
+		model.addAttribute("tasks", tasks);
+		return "Task";
+	}
+
+	@RequestMapping(value = "/TaskAdded", method = RequestMethod.POST)
+	public String TaskAdded(@ModelAttribute TaskInput taskInput, @ModelAttribute SprintTasksInput sprintTasksInput,
+
+			Model model) {
+		Task t = sprintService.storeTask(taskInput.toEntity());
+		sprintTasksInput.setSprintId(sprintid);
+		sprintTasksInput.setTaskId(t.getTaskId());
+
+		sprintTasksInput.setUserId(t.getTaskSupervisor().getUserId());
+		SprintTasks st;
+		st = sprintTasksInput.toEntity();
+		sprintService.storeSprintTasks(st);
+
+		sprintService.updateFunctionalstatus(taskInput.getFunid());
+
+		return "TaskAdded";
+	}
+
+	@RequestMapping(value = "/sprintDetailsByProjId", method = RequestMethod.GET)
+	public String getSprintDetailsByProjId(@RequestParam("projectId") int projectId, Model model) {
+
+		List<Sprint> sprintsByProjId = sprintService.getSprintsByProjId(projectId);
+
+		model.addAttribute("sprintsByProjId", sprintsByProjId);
+		return "sprintsByProjId";
+	}
+}
